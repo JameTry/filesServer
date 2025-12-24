@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="文件管理系统">
+    <title>文件管理系统</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
+    <link th:href="@{/css/bootstrap-icons.min.css}" rel="stylesheet"/>
+    <link th:href="@{/css/index.css}" rel="stylesheet"/>
+
+</head>
+<body>
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+            <i class="bi bi-folder-fill me-2"></i>文件管理系统
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <div class="navbar-nav me-auto">
+                <a class="nav-link active" href="#">文件</a>
+            </div>
+            <div class="d-flex">
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="搜索文件..." id="keyword">
+                    <button class="btn btn-light" type="button" onclick="goSearch()">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main style="padding-left: 100px;padding-right: 100px">
+    <!-- 操作按钮栏 -->
+    <div class="container-fluid mt-3 file-actions">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="btn-group btn-group-sm flex-wrap">
+                    <button type="button" class="btn btn-primary btn-file-action" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="bi bi-cloud-upload me-1"></i>上传文件
+                    </button>
+                    <button type="button" class="btn btn-success btn-file-action" id="newFolderBtn">
+                        <i class="bi bi-folder-plus me-1"></i>新建文件夹
+                    </button>
+                    <button type="button" class="btn btn-warning btn-file-action" id="moveBtn" disabled>
+                        <i class="bi bi-arrow-right-circle me-1"></i>移动
+                    </button>
+                    <button type="button" class="btn btn-info btn-file-action" id="downloadBtn" disabled>
+                        <i class="bi bi-download me-1"></i>下载
+                    </button>
+                    <button type="button" class="btn btn-danger btn-file-action" id="deleteBtn" disabled>
+                        <i class="bi bi-trash me-1"></i>删除
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-file-action" id="selectAllBtn">
+                        <i class="bi bi-check-square me-1"></i>全选
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-file-action" id="deselectAllBtn">
+                        <i class="bi bi-square me-1"></i>取消全选
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 mt-2 mt-md-0">
+                <div class="d-flex justify-content-md-end">
+                    <div class="dropdown ms-2">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-sort-down"></i> 排序
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" data-sort="date" onclick="loadFiles('date')">按日期</a></li>
+                            <li><a class="dropdown-item" href="#" data-sort="size" onclick="loadFiles('size')">按大小</a></li>
+                            <li><a class="dropdown-item" href="#" data-sort="type" onclick="loadFiles('type')">按类型</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 路径导航 -->
+    <div class="container-fluid path-breadcrumb">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0" id="path-menu">
+                <li class="breadcrumb-item"><a href="#"><i class="bi bi-house-door"></i> 根目录</a></li>
+                <li class="breadcrumb-item"><a href="#">文档</a></li>
+                <li class="breadcrumb-item active" aria-current="page">项目文件</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="container-fluid mt-3">
+        <div class="row file-system-container">
+            <div class=" col-lg-8 col-xl-9 p-0 sidebar">
+                <div class="file-list-header p-3 border-bottom">
+                    <div class="row">
+                        <div class="col-1">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                            </div>
+                        </div>
+                        <div class="col-4">名称</div>
+                        <div class="col-1 d-none d-md-block">类型</div>
+                        <div class="col-3 d-none d-md-block">日期</div>
+                        <div class="col-2 d-none d-md-block">大小</div>
+                        <div class="col-1"></div>
+                    </div>
+                </div>
+
+                <div id="fileList">
+                    <!-- 文件列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <div class=" col-lg-4 col-xl-3  p-0">
+                <div class="preview-container">
+                    <div class="preview-placeholder" id="defaultPreview">
+                        <i class="bi bi-file-earmark-text"></i>
+                        <h5>选择文件进行预览</h5>
+                        <p class="text-muted">点击左侧的文件来查看其内容</p>
+                    </div>
+
+                    <div class="file-preview" id="filePreview" style="display:none;">
+                        <!-- 预览内容将根据文件类型动态加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 上传进度条 -->
+    <div class="upload-progress card">
+        <div class="card-header py-2">
+            <h6 class="mb-0">上传进度</h6>
+        </div>
+        <div class="card-body p-3">
+            <div class="mb-2">
+                <small>project-report.pdf</small>
+                <div class="progress" style="height: 5px;">
+                    <div class="progress-bar" role="progressbar" style="width: 65%;"></div>
+                </div>
+                <small class="text-muted">65% - 13.2 MB / 20.3 MB</small>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary w-100">显示所有上传</button>
+        </div>
+    </div>
+
+    <!-- 上传文件模态框 -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">上传文件</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="border rounded p-4 text-center mb-3" id="dropZone">
+                        <i class="bi bi-cloud-upload display-4 text-muted d-block mb-3"></i>
+                        <p>拖放文件到此处或点击选择文件</p>
+                        <input type="file" class="form-control" id="fileInput" multiple>
+                    </div>
+
+                    <div id="selectedFiles" class="mb-3">
+                        <!-- 已选择文件列表 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="clearUploadBtn">清空所有</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startUploadBtn">开始上传</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建文件夹模态框 -->
+    <div class="modal fade" id="newFolderModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新建文件夹</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="folderName" class="form-label">文件夹名称</label>
+                        <input type="text" class="form-control" id="folderName" placeholder="输入文件夹名称">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="createFolderBtn">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动确认模态框 -->
+    <div class="modal fade" id="moveConfirmModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认移动文件</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>选中的文件:</h6>
+                    <div id="moveFileList" class="list-group mb-3"></div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="overwriteCheck">
+                        <label class="form-check-label" for="overwriteCheck">覆盖同名文件</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startMoveBtn">开始移动</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 冲突确认模态框 -->
+    <div class="modal fade" id="conflictModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">文件冲突</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>以下文件在目标位置已存在。请选择是否覆盖:</p>
+                    <div id="conflictList" class="list-group"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmConflictBtn">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动结果模态框 -->
+    <div class="modal fade" id="moveResultModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">移动结果</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="moveResultList" class="list-group"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+<script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/js/spark-md5.min.js}"></script>
+<script th:src="@{/js/jquery.min.js}"></script>
+<script th:src="@{/js/index.js}"></script>
+</body>
+</html>
