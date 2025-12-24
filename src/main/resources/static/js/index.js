@@ -25,7 +25,7 @@ function renderFileList() {
     files.forEach(file => {
         const isSelected = selectedFiles.has(file.id);
         const fileRow = document.createElement('div');
-        fileRow.className = `file-list-item p-3 ${isSelected ? 'selected' : ''}`;
+        fileRow.className = `file-list-item p-1 ${isSelected ? 'selected' : ''}`;
         fileRow.dataset.id = file.id;
 
         // 根据文件类型确定图标
@@ -37,6 +37,11 @@ function renderFileList() {
         } else {
             nameHtml = `<div class="file-name">${file.name}</div>`
         }
+
+        let ic=`   <img src="${iconPath}" alt="${file.type}" class="file-icon-img">`;
+        if(file.type==="image"){
+            ic= `<img src="${window.location.origin}/file/preview${file.path}" alt="${file.type}" class="file-icon-img">`;
+        }
         fileRow.innerHTML = `
                   <div class="row align-items-center">
                     <div class="col-2 col-md-1">
@@ -47,7 +52,8 @@ function renderFileList() {
 
                     <div class="col-7 col-md-4">
                         <div class="file-icon-container">
-                            <img src="${iconPath}" alt="${file.type}" class="file-icon-img">
+                        
+                         ${ic}
                             <div class="file-name-container">
                                 ${nameHtml}
                                 ${file.type === 'folder' ? `<div class="file-info">${file.items} 个项目</div>` : ''}

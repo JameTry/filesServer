@@ -19,7 +19,7 @@ spring:
     suffix: .html
 
 cfg:
-  root-path: D:\file-test
+  root-path: /mnt/sda1/files
 
 #
 #mybatis-plus:

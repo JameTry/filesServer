@@ -216,7 +216,7 @@ public class FileService {
                             if (isDir) {
                                 id = calculateStringMD5(relative);
                             } else {
-                                id = calculateFileMD5(p);
+                                id = String.valueOf(UUID.randomUUID());
                             }
 
 
@@ -479,44 +479,109 @@ public class FileService {
         return result;
     }
 
+
     public void preview(String path,
                         HttpServletRequest request,
                         HttpServletResponse response) throws IOException {
+
         File file = new File(Paths.get(rootPath, path).toString());
-        if (!file.exists()) {
+        if (!file.exists() || !file.isFile()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
+
         String suffix = getSuffix(path);
         long fileLength = file.length();
-        String range = request.getHeader("Range");
+        String rangeHeader = request.getHeader("Range");
 
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Accept-Ranges", "bytes");
 
         if (isImage(suffix)) {
+            // 图片直接全量返回
             response.setContentType(getImageType(suffix));
             response.setContentLengthLong(fileLength);
-            stream(file, response.getOutputStream());
+            try (InputStream in = Files.newInputStream(file.toPath());
+                 OutputStream out = response.getOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, len);
+                }
+            }
             return;
         }
 
         response.setContentType(getMediaType(suffix));
 
-        if (range == null) {
-            response.setContentLengthLong(fileLength);
-            Files.copy(file.toPath(), response.getOutputStream());
+        long start = 0;
+        long end = fileLength - 1;
+
+        // 处理 Range 请求
+        if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+            System.out.println("[DEBUG] Received Range header: " + rangeHeader);  // 添加日志：记录收到的Range头
+            String rangePart = rangeHeader.substring(6).trim();
+            if (rangePart.contains(",")) {
+                // 多范围请求暂不支持，返回全量或416
+                System.out.println("[DEBUG] Multiple ranges detected, rejecting.");  // 添加日志
+                response.setStatus(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                response.setHeader("Content-Range", "bytes */" + fileLength);
+                return;
+            }
+            String[] parts = rangePart.split("-", -1);
+            if (parts.length != 2) {
+                System.out.println("[DEBUG] Invalid parts length: " + parts.length);  // 添加日志
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+            String startStr = parts[0].trim();
+            String endStr = parts[1].trim();
+            try {
+                if (startStr.isEmpty() && endStr.isEmpty()) {
+                    System.out.println("[DEBUG] Both start and end empty.");  // 添加日志
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return;
+                }
+                if (startStr.isEmpty()) {
+                    // 后缀范围: bytes=-N
+                    long suffix1 = Long.parseLong(endStr);
+                    if (suffix1 <= 0) {
+                        System.out.println("[DEBUG] Invalid suffix: " + suffix1);  // 添加日志
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        return;
+                    }
+                    start = Math.max(fileLength - suffix1, 0);  // 如果suffix > fileLength，返回全量
+                    end = fileLength - 1;
+                } else {
+                    start = Long.parseLong(startStr);
+                    if (endStr.isEmpty()) {
+                        end = fileLength - 1;
+                    } else {
+                        end = Long.parseLong(endStr);
+                    }
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("[DEBUG] NumberFormatException for Range: " + rangeHeader + ", error: " + e.getMessage());  // 添加日志：捕获解析异常
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+        }
+
+        if (start > end || start < 0 || end >= fileLength) {
+            System.out.println("[DEBUG] Invalid range: start=" + start + ", end=" + end + ", fileLength=" + fileLength);  // 添加日志：无效范围
+            response.setStatus(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+            response.setHeader("Content-Range", "bytes */" + fileLength);
             return;
         }
 
-        // Range: bytes=start-
-        long start = Long.parseLong(range.replace("bytes=", "").split("-")[0]);
-        long end = fileLength - 1;
         long contentLength = end - start + 1;
 
-        response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
-        response.setHeader("Content-Range",
-                "bytes " + start + "-" + end + "/" + fileLength);
+        if (rangeHeader != null) {
+            response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+            response.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
+        } else {
+            response.setStatus(HttpServletResponse.SC_OK);
+        }
         response.setContentLengthLong(contentLength);
 
         try (RandomAccessFile raf = new RandomAccessFile(file, "r");
@@ -526,21 +591,16 @@ public class FileService {
             byte[] buffer = new byte[8192];
             long remaining = contentLength;
             int len;
-
-            while ((len = raf.read(buffer)) != -1 && remaining > 0) {
+            while (remaining > 0 && (len = raf.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
                 os.write(buffer, 0, len);
                 remaining -= len;
             }
-        }
-    }
-
-
-    private void stream(File file, OutputStream os) throws IOException {
-        try (InputStream in = Files.newInputStream(file.toPath())) {
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = in.read(buffer)) != -1) {
-                os.write(buffer, 0, len);
+            os.flush();
+        } catch (IOException e) {
+            // 客户端中断不报错
+            if (!e.getClass().getSimpleName().equals("ClientAbortException")) {
+                System.out.println("[DEBUG] IOException during output: " + e.getMessage());  // 添加日志：输出异常
+                throw e;
             }
         }
     }
